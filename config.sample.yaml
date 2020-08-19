@@ -1,0 +1,2 @@
+dburi: mongodb://chentiwen:123456@hannahl.cn:27017/?authMechanism=SCRAM-SHA-256
+jwtSignedKey: yourkey

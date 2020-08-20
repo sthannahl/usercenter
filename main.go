@@ -2,21 +2,27 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 
 	"sthannahl/usercenter/config"
 	"sthannahl/usercenter/model"
 
+	omgo "sthannahl/usercenter/go-oauth2/mongo"
+
+	"sthannahl/usercenter/go-oauth2/oauth2/manage"
+
 	"github.com/dgrijalva/jwt-go"
 	"gopkg.in/oauth2.v3/generates"
-	"gopkg.in/oauth2.v3/manage"
-	"gopkg.in/oauth2.v3/models"
+	omanage "gopkg.in/oauth2.v3/manage"
 	"gopkg.in/oauth2.v3/server"
 	"gopkg.in/oauth2.v3/store"
 )
 
 type AppConfig struct {
-	Dburi string `yaml:"dburi"`
+	Dburi        string `yaml:"dburi"`
+	JwtSignedKey string `yaml:"jwtSignedKey"`
+	Port         string `yaml:"port"`
 }
 
 var appConfig AppConfig
@@ -25,30 +31,25 @@ func loadConfig() {
 	config.Init(&appConfig)
 }
 
-func a() {
+func initOauthSrv() *server.Server {
 	manager := manage.NewDefaultManager()
-	manager.SetAuthorizeCodeTokenCfg(manage.DefaultAuthorizeCodeTokenCfg)
+	manager.SetAuthorizeCodeTokenCfg(omanage.DefaultAuthorizeCodeTokenCfg)
 
 	// token store
 	manager.MustTokenStorage(store.NewMemoryTokenStore())
 
 	// generate jwt access token
-	manager.MapAccessGenerate(generates.NewJWTAccessGenerate([]byte("sthannahl"), jwt.SigningMethodHS512))
+	manager.MapAccessGenerate(generates.NewJWTAccessGenerate([]byte(appConfig.JwtSignedKey), jwt.SigningMethodHS512))
 
-	clientStore := store.NewClientStore()
-	clientStore.Set("222222", &models.Client{
-		ID:     "222222",
-		Secret: "22222222",
-		Domain: "http://localhost:9094",
-	})
+	clientStore := omgo.NewClientStore(omgo.NewConfig(appConfig.Dburi, "user_center"))
 	manager.MapClientStorage(clientStore)
-
-	srv := server.NewServer(server.NewConfig(), manager)
+	return server.NewServer(server.NewConfig(), manager)
 }
 
 func main() {
 	loadConfig()
 	model.InitDB(appConfig.Dburi)
+	srv := initOauthSrv()
 
 	var userRepository model.UserRepository
 	userRepository.SetClient(model.DB.Mongo)
@@ -62,4 +63,7 @@ func main() {
 
 	user := userRepository.FindOneUser()
 	fmt.Println(user)
+
+	log.Printf("Server is running at %s port.", appConfig.Port)
+	log.Fatal(http.ListenAndServe(":"+appConfig.Port, nil))
 }

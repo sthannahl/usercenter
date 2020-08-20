@@ -1,0 +1,1 @@
+# override from `gopkg.in/go-oauth2/mongo.v3`

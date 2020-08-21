@@ -1,2 +1,3 @@
 dburi: mongodb://name:pwd@ip:port/?authMechanism=SCRAM-SHA-256
 jwtSignedKey: yourkey
+port: 8888

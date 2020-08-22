@@ -1,3 +1,5 @@
+// +build ignore
+
 package main
 
 import "fmt"
@@ -27,8 +29,6 @@ func (*C) Foo() {
 }
 
 func main() {
-	a := &B{}
-	b := C{*a}
-	var c A = &b
-	c.Foo()
+	var a *A
+	fmt.Println(a == nil)
 }

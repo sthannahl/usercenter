@@ -1,13 +1,13 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 
 	"sthannahl/usercenter/api"
 	"sthannahl/usercenter/config"
 	"sthannahl/usercenter/model"
+	"sthannahl/usercenter/model/userRepository"
 )
 
 type AppConfig struct {
@@ -29,10 +29,7 @@ func main() {
 	srv := api.InitOauth2Srv(appConfig.JwtSignedKey, appConfig.Dburi)
 	api.InitApiRouter(srv)
 
-	var userRepository model.UserRepository
-	userRepository.SetClient(model.DB.Mongo)
-	user := userRepository.FindOneUser()
-	fmt.Println(user)
+	userRepository.GetInstance().SetClient(model.DB.Mongo)
 
 	log.Printf("Server is running at %s port.", appConfig.Port)
 	log.Fatal(http.ListenAndServe(":"+appConfig.Port, nil))

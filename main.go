@@ -7,7 +7,7 @@ import (
 	"sthannahl/usercenter/api"
 	"sthannahl/usercenter/config"
 	"sthannahl/usercenter/model"
-	"sthannahl/usercenter/model/userRepository"
+	userRepository "sthannahl/usercenter/model/userrepository"
 )
 
 type AppConfig struct {
@@ -26,11 +26,12 @@ func main() {
 	loadConfig()
 	model.InitDB(appConfig.Dburi)
 
-	srv := api.InitOauth2Srv(appConfig.JwtSignedKey, appConfig.Dburi)
-	api.InitApiRouter(srv)
-
 	userRepository.GetInstance().SetClient(model.DB.Mongo)
+
+	srv := api.InitOauth2Srv(appConfig.JwtSignedKey, appConfig.Dburi)
+	api.InitAPIRouter(srv)
 
 	log.Printf("Server is running at %s port.", appConfig.Port)
 	log.Fatal(http.ListenAndServe(":"+appConfig.Port, nil))
+	// gin.Default()
 }

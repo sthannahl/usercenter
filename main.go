@@ -1,9 +1,6 @@
 package main
 
 import (
-	"log"
-	"net/http"
-
 	"sthannahl/usercenter/api"
 	"sthannahl/usercenter/config"
 	"sthannahl/usercenter/model"
@@ -29,9 +26,6 @@ func main() {
 	userRepository.GetInstance().SetClient(model.DB.Mongo)
 
 	srv := api.InitOauth2Srv(appConfig.JwtSignedKey, appConfig.Dburi)
-	api.InitAPIRouter(srv)
-
-	log.Printf("Server is running at %s port.", appConfig.Port)
-	log.Fatal(http.ListenAndServe(":"+appConfig.Port, nil))
-	// gin.Default()
+	api.SetOauth2Srv(srv)
+	api.InitAPIRouter(appConfig.Port)
 }

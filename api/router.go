@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
+	"log"
 	"net/http"
 	userRepository "sthannahl/usercenter/model/userrepository"
 
+	"github.com/gin-gonic/gin"
 	"gopkg.in/oauth2.v3"
 	"gopkg.in/oauth2.v3/server"
 )
@@ -14,64 +16,83 @@ import (
 var srv *server.Server
 
 // InitAPIRouter .
-func InitAPIRouter(oauth2Srv *server.Server) {
-	srv = oauth2Srv
-	http.HandleFunc("/token", tokenHandle)
-	http.HandleFunc("/signUp", signUpHandle)
-	http.HandleFunc("/user", userHandle)
+func InitAPIRouter(port string) {
+	router := gin.Default()
+
+	router.POST("/token", tokenHandle)
+	router.POST("/signUp", signUpHandle)
+	router.GET("/user", userHandle)
+
+	log.Printf("Server is running at %s port.", port)
+	log.Fatal(router.Run(":" + port))
 }
 
-func userHandle(w http.ResponseWriter, r *http.Request) {
-	token, _, err := validToken(w, r)
+// SetOauth2Srv .
+func SetOauth2Srv(oauth2Srv *server.Server) {
+	srv = oauth2Srv
+}
+
+func userHandle(c *gin.Context) {
+	token, _, err := validToken(c)
 	if err != nil {
 		return
 	}
 
-	var names []string = r.URL.Query()["user_id"]
-	if names == nil || len(names) == 0 || names[0] == "" {
-		http.Error(w, "user_id缺失", http.StatusBadRequest)
+	userID := c.Query("user_id")
+	if userID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"msg": "user_id缺失",
+		})
 		return
 	}
 
-	user := userRepository.GetInstance().FindUserByTypeAndName(token.GetClientID(), names[0])
+	user := userRepository.GetInstance().FindUserByTypeAndName(token.GetClientID(), userID)
 
-	e := json.NewEncoder(w)
-	e.SetIndent("", "  ")
-	e.Encode(user)
+	c.JSON(http.StatusBadRequest, gin.H{
+		"msg":  "",
+		"data": user,
+	})
 }
 
-func signUpHandle(w http.ResponseWriter, r *http.Request) {
-	token, _, err := validToken(w, r)
+func signUpHandle(c *gin.Context) {
+	token, _, err := validToken(c)
 	if err != nil {
 		return
 	}
 
 	var user map[string]interface{}
-	body, _ := ioutil.ReadAll(r.Body)
+	body, _ := ioutil.ReadAll(c.Request.Body)
 	json.Unmarshal(body, &user)
 
 	err = validUser(&user)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		c.JSON(http.StatusBadRequest, gin.H{
+			"msg": err.Error(),
+		})
 		return
 	}
 
 	user["type"] = token.GetClientID()
 	err = userRepository.GetInstance().Save(&user)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"msg": err.Error(),
+		})
 		return
 	}
 
-	e := json.NewEncoder(w)
-	e.SetIndent("", "  ")
-	e.Encode(&user)
+	c.JSON(http.StatusOK, gin.H{
+		"msg":  "",
+		"data": user,
+	})
 }
 
-func tokenHandle(w http.ResponseWriter, r *http.Request) {
-	err := srv.HandleTokenRequest(w, r)
+func tokenHandle(c *gin.Context) {
+	err := srv.HandleTokenRequest(c.Writer, c.Request)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"msg": err.Error(),
+		})
 	}
 }
 
@@ -86,15 +107,19 @@ func validUser(user *map[string]interface{}) error {
 	return nil
 }
 
-func validToken(w http.ResponseWriter, r *http.Request) (oauth2.TokenInfo, oauth2.ClientInfo, error) {
-	token, err := srv.ValidationBearerToken(r)
+func validToken(c *gin.Context) (oauth2.TokenInfo, oauth2.ClientInfo, error) {
+	token, err := srv.ValidationBearerToken(c.Request)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		c.JSON(http.StatusBadRequest, gin.H{
+			"msg": err.Error(),
+		})
 		return nil, nil, err
 	}
 	cli, err := srv.Manager.GetClient(token.GetClientID())
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		c.JSON(http.StatusBadRequest, gin.H{
+			"msg": err.Error(),
+		})
 		return nil, nil, err
 	}
 	return token, cli, err
